@@ -1,0 +1,57 @@
+# Pubblica il sito su GitHub Pages e aggiorna ogni giorno lo stato delle ferrate.
+#  - a ogni push su main: pubblica il sito
+#  - ogni giorno alle 05:30 UTC (06:30 in Italia d'inverno, 07:30 d'estate) e con "Run workflow":
+#    esegue scripts/aggiorna-stato.ps1, salva data/stato.js se è cambiato, poi pubblica
+name: Pubblica sito e aggiorna stato ferrate
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write   # per salvare data/stato.js
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  pubblica:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Aggiorna lo stato delle ferrate (ferrate365.it)
+        if: github.event_name != 'push'
+        shell: pwsh
+        run: ./scripts/aggiorna-stato.ps1
+
+      - name: Salva data/stato.js se è cambiato
+        if: github.event_name != 'push'
+        run: |
+          if git diff --quiet -- data/stato.js; then
+            echo "Nessun cambiamento nello stato."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/stato.js
+            git commit -m "Aggiorna stato ferrate ($(date -u +%Y-%m-%d))"
+            git push
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

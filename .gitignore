@@ -1,0 +1,5 @@
+# impostazioni locali di Claude Code
+.claude/
+# log e file temporanei dello script di aggiornamento
+scripts/aggiorna-stato.log
+*.tmp
